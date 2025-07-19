@@ -23,7 +23,8 @@ pub struct Pool {
     pub liquidity: u128,
     pub sqrt_price_x96 : u128,
     pub current_tick :i32,
-    pub tick_spacing : i32
+    pub tick_spacing : i32,
+    pub bump : u8,
 }
 
 #[account]
@@ -57,7 +58,6 @@ impl TickInfo {
         }
 
         let final_liquidity = init_liquidity.checked_add(liquidity).expect("liq overflow");
-
         self.liquidity_total = final_liquidity;
     }
 }
