@@ -27,12 +27,6 @@ pub struct Pool {
     pub bump : u8,
 }
 
-#[account]
-#[derive(InitSpace)]
-pub struct Tick {
-    pub liquidity_gross: u128,
-    pub initialized: bool,
-}
 
 #[account]
 #[derive(InitSpace)]
@@ -46,20 +40,31 @@ pub struct Position {
 #[derive(InitSpace)]
 pub struct TickInfo {
     pub initialized : bool,
-    pub liquidity_total : u128
+    pub liquidity_gross : u128,
+    pub liquidity_net : u128,
 }
 
 impl TickInfo {
     pub fn add_liquidity(&mut self , liquidity: u128){
-        let init_liquidity = self.liquidity_total;
+        let init_liquidity = self.liquidity_gross;
 
         if init_liquidity == 0 {
             self.initialized = true;
         }
 
         let final_liquidity = init_liquidity.checked_add(liquidity).expect("liq overflow");
-        self.liquidity_total = final_liquidity;
+        self.liquidity_gross = final_liquidity;
     }
+}
+
+pub const TICKS_PER_ARRAY: usize = 100;
+
+#[account]
+#[derive(InitSpace)]
+pub struct TickArray {
+    pub pool : Pubkey,
+    pub starting_tick: i32,
+    pub ticks: [TickInfo; TICKS_PER_ARRAY],
 }
 
 #[error_code]
