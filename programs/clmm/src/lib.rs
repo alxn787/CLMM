@@ -40,3 +40,30 @@ pub struct Position {
     pub tick_lower: i32,
     pub tick_upper: i32,
 }
+
+#[account]
+#[derive(InitSpace)]
+pub struct TickInfo {
+    pub initialized : bool,
+    pub liquidity_total : u128
+}
+
+impl TickInfo {
+    pub fn add_liquidity(&mut self , liquidity: u128){
+        let init_liquidity = self.liquidity_total;
+
+        if init_liquidity == 0 {
+            self.initialized = true;
+        }
+
+        let final_liquidity = init_liquidity.checked_add(liquidity).expect("liq overflow");
+
+        self.liquidity_total = final_liquidity;
+    }
+}
+
+#[error_code]
+pub enum ErrorCode {
+    #[msg("Arithmetic Overflow")]
+    ArithmeticOverflow
+}
