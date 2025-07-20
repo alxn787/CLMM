@@ -1,4 +1,4 @@
-use anchor_lang::prelude::*;
+use anchor_lang::{accounts::sysvar, prelude::*};
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
 declare_id!("4GhrgMYusqS5uuyzrrBvFv3FuVGp4RRp4XKDBctyW6oN");
@@ -57,7 +57,78 @@ pub struct InitializePool<'info> {
     pub rent : Sysvar<'info,Rent>
 }
 
+#[derive(Accounts)]
+#[instruction(lower_tick: i32, upper_tick: i32, liquidity_amount: u128)]
+pub struct AddLiquidity<'info> {
+    
+    #[account(
+        mut,
+        has_one = token_mint_0,
+        has_one = token_mint_1,
+    )]
+    pub pool: Account<'info, Pool>,
 
+    #[account(
+        init_if_needed,
+        payer = payer,
+        space = TickArray::INIT_SPACE,
+        seeds = [
+            b"tick_array",
+            pool.key().as_ref(),
+            &TickArray::get_starting_tick_index(lower_tick, pool.tick_spacing ).to_le_bytes()
+        ],
+        bump,
+    )]
+    pub lower_tick_array: Account<'info, TickArray>,
+
+    #[account(
+    init_if_needed,
+    payer = payer,
+    space = TickArray::INIT_SPACE,
+    seeds = [
+        b"tick_array",
+        pool.key().as_ref(),
+        &TickArray::get_starting_tick_index(upper_tick, pool.tick_spacing ).to_le_bytes()
+    ],
+    bump,
+    )]
+    pub upper_tick_array: Account<'info, TickArray>,
+
+        #[account(
+        init_if_needed,
+        payer = payer,
+        space = Position::INIT_SPACE, 
+        seeds = [
+            b"position", 
+            payer.key().as_ref(), 
+            pool.key().as_ref(), 
+            &lower_tick.to_le_bytes(),
+            &upper_tick.to_le_bytes(),
+        ],
+        bump,
+    )]
+    pub position: Account<'info, Position>,
+
+    #[account(mut)]
+    pub user_token_0: Account<'info, TokenAccount>,
+
+    #[account(mut)]
+    pub user_token_1: Account<'info, TokenAccount>,
+
+    #[account(mut)]
+    pub pool_token_0: Account<'info, TokenAccount>,
+
+    #[account(mut)]
+    pub pool_token_1: Account<'info, TokenAccount>,
+    
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    pub token_mint_0: Account<'info, Mint>,
+    pub token_mint_1: Account<'info, Mint>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub rent: Sysvar<'info, Rent>,
+}
 
 
 #[account]
@@ -122,7 +193,21 @@ pub struct TickArray {
 }
 
 impl TickArray {
-
+    pub fn get_starting_tick_index(tick: i32, tick_spacing: i32) -> i32 {
+        let tick_spacing_i32 = tick_spacing as i32;
+        let array_idx = tick.checked_div(tick_spacing_i32).expect("Div by zero")
+                            .checked_div(TICKS_PER_ARRAY as i32).expect("Div by zero");
+                            array_idx.checked_mul(TICKS_PER_ARRAY as i32).expect("Mul overflow")
+                            .checked_mul(tick_spacing_i32).expect("Mul overflow")
+    }
+    pub fn get_tick_info_mutable(&mut self, tick: i32, tick_spacing: u16) -> Result<&mut TickInfo> {
+        let tick_spacing_i32 = tick_spacing as i32;
+        let offset = (tick.checked_div(tick_spacing_i32).ok_or(ErrorCode::ArithmeticOverflow)?)
+            .checked_sub(self.starting_tick.checked_div(tick_spacing_i32).ok_or(ErrorCode::ArithmeticOverflow)?)
+            .ok_or(ErrorCode::ArithmeticOverflow)?
+            .checked_rem(TICKS_PER_ARRAY as i32).ok_or(ErrorCode::ArithmeticOverflow)? as usize;
+        Ok(&mut self.ticks[offset])
+    }
 }
 
 #[error_code]
