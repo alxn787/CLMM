@@ -100,7 +100,7 @@ pub mod clmm {
             let cpi_accounts_1 = Transfer {
                 from: ctx.accounts.user_token_1.to_account_info(),
                 to: ctx.accounts.pool_token_1.to_account_info(),
-                authority: ctx.accounts.payer.to_account_info(), // User is the authority
+                authority: ctx.accounts.payer.to_account_info(), 
             };
             let cpi_program = ctx.accounts.token_program.to_account_info();
             token::transfer(CpiContext::new(cpi_program, cpi_accounts_1), amount_1)?;
@@ -131,16 +131,16 @@ pub mod clmm {
         let current_sqrt_price_x96 = pool.sqrt_price_x96;
         let global_liquidity = pool.global_liquidity;
 
-        let target_sqrt_price_x96 = if swap_token_0_for_1{
-            get_sqrt_price_from_tick(pool.current_tick - 1)?
-        }else{
-            get_sqrt_price_from_tick(pool.current_tick + 1)?
-        };
+        // let target_sqrt_price_x96 = if swap_token_0_for_1{
+        //     get_sqrt_price_from_tick(pool.current_tick - 1)?
+        // }else{
+        //     get_sqrt_price_from_tick(pool.current_tick + 1)?
+        // };
 
-        let current_tick_info = ctx.accounts.tick_array.get_tick_info_mutable(
-            pool.current_tick,
-            pool.tick_spacing,
-        )?;
+        // let current_tick_info = ctx.accounts.tick_array.get_tick_info_mutable(
+        //     pool.current_tick,
+        //     pool.tick_spacing,
+        // )?;
 
         let (amount_in_used, amount_out_calculated, new_sqrt_price_x96) =  swap_segment(current_sqrt_price_x96, global_liquidity, amount_in, swap_token_0_for_1)?;
         
@@ -185,7 +185,10 @@ pub mod clmm {
             token::transfer(CpiContext::new_with_signer(ctx.accounts.token_program.to_account_info(), cpi_accounts_out, signer_seeds), amount_out_calculated)?;
         }
 
-        Ok((amount_out_calculated))
+        pool.sqrt_price_x96 = new_sqrt_price_x96;
+        pool.current_tick = get_tick_at_sqrt_price(new_sqrt_price_x96)?;
+
+        Ok(amount_out_calculated)
     }
 
 }
@@ -564,7 +567,7 @@ pub fn swap_segment(
     let mut amount_out_calculated = 0u64;
     let mut new_sqrt_price = current_sqrt_price_x96;
 
-    amount_out_calculated = amount_in_used.checked_sub(amount_in_used / 1000).ok_or(ErrorCode::ArithmeticOverflow)?; // Simulates 0.1% 
+    amount_out_calculated = amount_in_used.checked_sub(amount_in_used / 1000).ok_or(ErrorCode::ArithmeticOverflow)?; // 0.1% slippage 
     if swap_token_0_for_1 {
         new_sqrt_price = current_sqrt_price_x96.checked_sub(1_000_000_000).ok_or(ErrorCode::ArithmeticOverflow)?;
         if new_sqrt_price < 1 { new_sqrt_price = 1; }
