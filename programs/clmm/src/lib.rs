@@ -5,6 +5,8 @@ declare_id!("4GhrgMYusqS5uuyzrrBvFv3FuVGp4RRp4XKDBctyW6oN");
 
 #[program]
 pub mod clmm {
+    use anchor_spl::token::{self, Transfer};
+
     use super::*;
 
     pub fn initializePool(
@@ -28,7 +30,97 @@ pub mod clmm {
         Ok(())
     }
 
-    
+    pub fn add_liquidity(
+        ctx: Context<AddLiquidity>,
+        owner: Pubkey,
+        lower_tick: i32,
+        upper_tick: i32,
+        liquidity_amount:u128
+    )-> Result<(u64,u64)>{
+
+        let pool = &mut ctx.accounts.pool;
+        let position = &mut ctx.accounts.position;
+
+        require!(
+            lower_tick < upper_tick &&
+            lower_tick % (pool.tick_spacing as i32) == 0 &&
+            upper_tick % (pool.tick_spacing as i32) == 0,
+            ErrorCode::InvalidTickRange
+        );
+
+        require!(liquidity_amount > 0, ErrorCode::InsufficientInputAmount);
+
+        //ideally should be able to add anywhere .
+        //here were simplifying this to only add in the current tick range
+        require!(
+            pool.current_tick >= lower_tick && pool.current_tick < upper_tick,
+            ErrorCode::MintRangeMustCoverCurrentPrice
+        );
+
+        let lower_tick_info = ctx.accounts.lower_tick_array.get_tick_info_mutable(lower_tick, pool.tick_spacing)?;
+        let upper_tick_info = ctx.accounts.upper_tick_array.get_tick_info_mutable(upper_tick, pool.tick_spacing)?;
+
+        lower_tick_info.update_liquidity(liquidity_amount as i128, true)?;
+        upper_tick_info.update_liquidity(liquidity_amount as i128, false)?;
+
+        let current_sqrt_price_x96 = pool.sqrt_price_x96;
+        let lower_sqrt_price_x96 = get_sqrt_price_from_tick(lower_tick)?;
+        let upper_sqrt_price_x96 = get_sqrt_price_from_tick(upper_tick)?;
+ 
+        let(amount_0, amount_1) = get_amounts_for_liquidity(current_sqrt_price_x96, lower_sqrt_price_x96, upper_sqrt_price_x96, liquidity_amount)?;
+
+
+        if position.liquidity == 0 && position.owner == Pubkey::default() { 
+            position.owner = owner;
+            position.pool = pool.key();
+            position.tick_lower = lower_tick;
+            position.tick_upper = upper_tick;
+            position.liquidity = liquidity_amount;
+            position.bump = ctx.bumps.position;
+
+        } else { 
+            require!(position.owner == owner, ErrorCode::InvalidPositionOwner);
+            require!(position.tick_lower == lower_tick && position.tick_upper == upper_tick, ErrorCode::InvalidPositionRange);
+            position.liquidity = position.liquidity.checked_add(liquidity_amount).ok_or(ErrorCode::ArithmeticOverflow)?;
+        }
+
+        pool.global_liquidity = pool.global_liquidity.checked_add(liquidity_amount).ok_or(ErrorCode::ArithmeticOverflow)?;
+
+                if amount_0 > 0 {
+            let cpi_accounts_0 = Transfer {
+                from: ctx.accounts.user_token_0.to_account_info(),
+                to: ctx.accounts.pool_token_0.to_account_info(),
+                authority: ctx.accounts.payer.to_account_info(), // User is the authority
+            };
+            let cpi_program = ctx.accounts.token_program.to_account_info();
+            token::transfer(CpiContext::new(cpi_program, cpi_accounts_0), amount_0)?;
+        }
+
+        if amount_1 > 0 {
+            let cpi_accounts_1 = Transfer {
+                from: ctx.accounts.user_token_1.to_account_info(),
+                to: ctx.accounts.pool_token_1.to_account_info(),
+                authority: ctx.accounts.payer.to_account_info(), // User is the authority
+            };
+            let cpi_program = ctx.accounts.token_program.to_account_info();
+            token::transfer(CpiContext::new(cpi_program, cpi_accounts_1), amount_1)?;
+        }
+
+        ctx.accounts.pool_token_0.reload()?;
+        ctx.accounts.pool_token_1.reload()?;
+
+        require!(
+            ctx.accounts.pool_token_0.amount >= amount_0,
+            ErrorCode::Token0TransferFailed
+        );
+        require!(
+            ctx.accounts.pool_token_1.amount >= amount_1,
+            ErrorCode::Token1TransferFailed
+        );
+        Ok((amount_0, amount_1))
+
+
+    }
 }
 
 #[derive(Accounts)]
@@ -76,7 +168,7 @@ pub struct InitializePool<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(lower_tick: i32, upper_tick: i32, liquidity_amount: u128)]
+#[instruction(lower_tick: i32, upper_tick: i32, liquidity_amount: u128, tick_spacing: i32)]
 pub struct AddLiquidity<'info> {
     
     #[account(
@@ -93,7 +185,7 @@ pub struct AddLiquidity<'info> {
         seeds = [
             b"tick_array",
             pool.key().as_ref(),
-            &TickArray::get_starting_tick_index(lower_tick, pool.tick_spacing ).to_le_bytes()
+            &TickArray::get_starting_tick_index(lower_tick, tick_spacing ).to_le_bytes()
         ],
         bump,
     )]
@@ -106,7 +198,7 @@ pub struct AddLiquidity<'info> {
     seeds = [
         b"tick_array",
         pool.key().as_ref(),
-        &TickArray::get_starting_tick_index(upper_tick, pool.tick_spacing ).to_le_bytes()
+        &TickArray::get_starting_tick_index(upper_tick,tick_spacing ).to_le_bytes()
     ],
     bump,
     )]
@@ -272,7 +364,7 @@ impl TickInfo {
     }
 }
 
-pub const TICKS_PER_ARRAY: usize = 100;
+pub const TICKS_PER_ARRAY: usize = 30;
 
 #[account]
 #[derive(InitSpace)]
@@ -291,7 +383,7 @@ impl TickArray {
                             array_idx.checked_mul(TICKS_PER_ARRAY as i32).expect("Mul overflow")
                             .checked_mul(tick_spacing_i32).expect("Mul overflow")
     }
-    pub fn get_tick_info_mutable(&mut self, tick: i32, tick_spacing: u16) -> Result<&mut TickInfo> {
+    pub fn get_tick_info_mutable(&mut self, tick: i32, tick_spacing: i32) -> Result<&mut TickInfo> {
         let tick_spacing_i32 = tick_spacing as i32;
         let offset = (tick.checked_div(tick_spacing_i32).ok_or(ErrorCode::ArithmeticOverflow)?)
             .checked_sub(self.starting_tick.checked_div(tick_spacing_i32).ok_or(ErrorCode::ArithmeticOverflow)?)
@@ -342,28 +434,41 @@ pub enum ErrorCode {
 }
 
 pub fn get_sqrt_price_from_tick(tick: i32) -> Result<u128> {
-    // Represents sqrt(1) in Q64.96 format, i.e., price of 1.
     let base_sqrt_price = 1u128 << 96;
-    // Example small adjustment per tick. This is NOT mathematically derived.
     let adjustment_factor = 1_000_000_000 / 1000;
-
-    // Apply a linear adjustment based on the tick index.
     // This is a simplification; real math is logarithmic.
     let adjusted_price = base_sqrt_price.checked_add_signed((tick as i128) * (adjustment_factor as i128))
         .ok_or(ErrorCode::ArithmeticOverflow)?;
     Ok(adjusted_price)
 }
 
-/// Placeholder: Converts a sqrt_price_x96 back to its nearest tick index.
-///
-/// This is the inverse of `get_sqrt_price_from_tick`.
 pub fn get_tick_at_sqrt_price(sqrt_price_x96: u128) -> Result<i32> {
     let base_sqrt_price = 1u128 << 96;
     let adjustment_factor = 1_000_000_000 / 1000;
 
-    // Calculate the difference from the base price.
     let diff = sqrt_price_x96 as i128 - base_sqrt_price as i128;
-    // Reverse the linear adjustment to get the tick.
     let tick = diff.checked_div(adjustment_factor as i128).ok_or(ErrorCode::ArithmeticOverflow)? as i32;
     Ok(tick)
+}
+
+pub fn get_amounts_for_liquidity(
+    current_sqrt_price_x96: u128,
+    lower_sqrt_price_x96: u128,
+    upper_sqrt_price_x96: u128,
+    liquidity: u128,
+) -> Result<(u64, u64)> {
+    let mut amount0 = 0u64;
+    let mut amount1 = 0u64;
+
+    //simplified logic with approximation 
+
+    if current_sqrt_price_x96 >= lower_sqrt_price_x96 && current_sqrt_price_x96 < upper_sqrt_price_x96 {
+        amount0 = (liquidity / 2) as u64; 
+        amount1 = (liquidity / 2) as u64;
+    } else if current_sqrt_price_x96 < lower_sqrt_price_x96 {
+        amount0 = liquidity as u64; 
+    } else {
+        amount1 = liquidity as u64; 
+    }
+    Ok((amount0, amount1))
 }
