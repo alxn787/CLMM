@@ -14,28 +14,28 @@ pub struct AddLiquidity<'info> {
     pub pool: Account<'info, Pool>,
 
     #[account(
-        mut,
-        constraint = lower_tick_array.key() == Pubkey::find_program_address(
-            &[
-                b"tick_array".as_ref(),
-                pool.key().as_ref(),
-                &TickArray::get_starting_tick_index(lower_tick, pool.tick_spacing).to_le_bytes()
-            ],
-            &crate::ID
-        ).0 @ ErrorCode::InvalidTickArrayAccount
+    init_if_needed,
+    payer = payer,
+    space = TickArray::INIT_SPACE,
+    seeds = [
+        b"tick_array",
+        pool.key().as_ref(),
+        &TickArray::get_starting_tick_index(lower_tick, pool.tick_spacing).to_le_bytes(),
+    ],
+        bump
     )]
     pub lower_tick_array: Account<'info, TickArray>,
 
     #[account(
-        mut,
-        constraint = upper_tick_array.key() == Pubkey::find_program_address(
-            &[
-                b"tick_array".as_ref(),
-                pool.key().as_ref(),
-                &TickArray::get_starting_tick_index(upper_tick, pool.tick_spacing).to_le_bytes()
-            ],
-            &crate::ID
-        ).0 @ ErrorCode::InvalidTickArrayAccount
+    init_if_needed,
+    payer = payer,
+    space = TickArray::INIT_SPACE,
+    seeds = [
+        b"tick_array",
+        pool.key().as_ref(),
+        &TickArray::get_starting_tick_index(upper_tick, pool.tick_spacing).to_le_bytes()
+    ],
+    bump
     )]
     pub upper_tick_array: Account<'info, TickArray>,
 
