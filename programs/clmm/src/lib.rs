@@ -20,7 +20,11 @@ pub struct InitializePool {
 #[account]
 #[derive(InitSpace)]
 pub struct Pool {
-    pub liquidity: u128,
+    pub token_mint_0: Pubkey,
+    pub token_mint_1: Pubkey,
+    pub token_vault_0: Pubkey,
+    pub token_vault_1: Pubkey,
+    pub global_liquidity: u128,
     pub sqrt_price_x96 : u128,
     pub current_tick :i32,
     pub tick_spacing : i32,
@@ -38,22 +42,28 @@ pub struct Position {
 
 #[account]
 #[derive(InitSpace)]
-pub struct TickInfo {
+pub struct TickInfo { 
     pub initialized : bool,
     pub liquidity_gross : u128,
-    pub liquidity_net : u128,
+    pub liquidity_net : i128,
 }
 
 impl TickInfo {
-    pub fn add_liquidity(&mut self , liquidity: u128){
-        let init_liquidity = self.liquidity_gross;
-
-        if init_liquidity == 0 {
+    pub fn update_liquidity(&mut self , liquidity_delta: i128, is_lower: bool) -> Result<()> {
+       
+       if self.liquidity_gross == 0 {
             self.initialized = true;
         }
 
-        let final_liquidity = init_liquidity.checked_add(liquidity).expect("liq overflow");
-        self.liquidity_gross = final_liquidity;
+        self.liquidity_gross = self.liquidity_gross.checked_add(liquidity_delta.unsigned_abs() as u128)
+            .ok_or(ErrorCode::ArithmeticOverflow)?;
+
+        if is_lower {
+            self.liquidity_net = self.liquidity_net.checked_add(liquidity_delta).ok_or(ErrorCode::ArithmeticOverflow)?;
+        } else {
+            self.liquidity_net = self.liquidity_net.checked_sub(liquidity_delta).ok_or(ErrorCode::ArithmeticOverflow)?;
+        }
+        Ok(())
     }
 }
 
@@ -65,6 +75,11 @@ pub struct TickArray {
     pub pool : Pubkey,
     pub starting_tick: i32,
     pub ticks: [TickInfo; TICKS_PER_ARRAY],
+    pub bump : u8,
+}
+
+impl TickArray {
+
 }
 
 #[error_code]
