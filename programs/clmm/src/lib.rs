@@ -130,6 +130,30 @@ pub struct AddLiquidity<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
+#[derive(Accounts)]
+#[instruction(amount_in: u64, swap_token_0_for_1:bool, amount_out_minimum: u64)]
+pub struct Swap <'info> {
+
+    #[account(mut)]
+    pub pool: Account<'info, Pool>,
+
+    #[account(mut)]
+    pub user_token_0: Account<'info, TokenAccount>,
+
+    #[account(mut)]
+    pub user_token_1: Account<'info, TokenAccount>,
+
+    #[account(mut)]
+    pub pool_token_0: Account<'info, TokenAccount>,
+
+    #[account(mut)]
+    pub pool_token_1: Account<'info, TokenAccount>,
+
+    pub payer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub rent: Sysvar<'info, Rent>,
+}
 
 #[account]
 #[derive(InitSpace)]
