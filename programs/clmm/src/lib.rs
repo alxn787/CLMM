@@ -118,9 +118,76 @@ pub mod clmm {
             ErrorCode::Token1TransferFailed
         );
         Ok((amount_0, amount_1))
-
-
     }
+
+
+    pub fn swap(ctx:Context<Swap>, amount_in:u64,swap_token_0_for_1:bool, amount_out_minimum:u64)-> Result<u64>{
+
+        let pool = &mut ctx.accounts.pool;
+
+        require!(pool.global_liquidity > 0, ErrorCode::InsufficientPoolLiquidity);
+        require!(amount_in > 0, ErrorCode::InsufficientInputAmount);
+
+        let current_sqrt_price_x96 = pool.sqrt_price_x96;
+        let global_liquidity = pool.global_liquidity;
+
+        let target_sqrt_price_x96 = if swap_token_0_for_1{
+            get_sqrt_price_from_tick(pool.current_tick - 1)?
+        }else{
+            get_sqrt_price_from_tick(pool.current_tick + 1)?
+        };
+
+        let current_tick_info = ctx.accounts.tick_array.get_tick_info_mutable(
+            pool.current_tick,
+            pool.tick_spacing,
+        )?;
+
+        let (amount_in_used, amount_out_calculated, new_sqrt_price_x96) =  swap_segment(current_sqrt_price_x96, global_liquidity, amount_in, swap_token_0_for_1)?;
+        
+        require!(amount_out_calculated >= amount_out_minimum, ErrorCode::SlippageExceeded);
+
+        let signer_seeds: &[&[&[u8]]] = &[&[
+            b"pool",
+            pool.token_mint_0.as_ref(),
+            pool.token_mint_1.as_ref(),
+            &pool.tick_spacing.to_le_bytes(),
+            &[pool.bump],
+        ]];
+
+        if swap_token_0_for_1 {
+            let cpi_accounts_in = Transfer {
+                from: ctx.accounts.user_token_0.to_account_info(),
+                to: ctx.accounts.pool_token_0.to_account_info(),
+                authority: ctx.accounts.payer.to_account_info(),
+            };
+            token::transfer(CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts_in), amount_in_used)?;
+
+            let cpi_accounts_out = Transfer {
+                from: ctx.accounts.pool_token_1.to_account_info(),
+                to: ctx.accounts.user_token_1.to_account_info(),
+                authority: pool.to_account_info(),
+            };
+            token::transfer(CpiContext::new_with_signer(ctx.accounts.token_program.to_account_info(), cpi_accounts_out, signer_seeds), amount_out_calculated)?;
+        } else {
+
+            let cpi_accounts_in = Transfer {
+                from: ctx.accounts.user_token_1.to_account_info(),
+                to: ctx.accounts.pool_token_1.to_account_info(),
+                authority: ctx.accounts.payer.to_account_info(),
+            };
+            token::transfer(CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts_in), amount_in_used)?;
+
+            let cpi_accounts_out = Transfer {
+                from: ctx.accounts.pool_token_0.to_account_info(),
+                to: ctx.accounts.user_token_0.to_account_info(),
+                authority: pool.to_account_info(), 
+            };
+            token::transfer(CpiContext::new_with_signer(ctx.accounts.token_program.to_account_info(), cpi_accounts_out, signer_seeds), amount_out_calculated)?;
+        }
+
+        Ok((amount_out_calculated))
+    }
+
 }
 
 #[derive(Accounts)]
@@ -258,6 +325,17 @@ pub struct Swap <'info> {
 
     #[account(mut)]
     pub pool_token_1: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        seeds = [
+            b"tick_array",
+            pool.key().as_ref(),
+            &TickArray::get_starting_tick_index(pool.current_tick,pool.tick_spacing ).to_le_bytes()
+        ],
+        bump,
+    )]
+    pub tick_array: Account<'info, TickArray>,
 
     pub payer: Signer<'info>,
     pub system_program: Program<'info, System>,
@@ -435,7 +513,7 @@ pub enum ErrorCode {
 
 pub fn get_sqrt_price_from_tick(tick: i32) -> Result<u128> {
     let base_sqrt_price = 1u128 << 96;
-    let adjustment_factor = 1_000_000_000 / 1000;
+    let adjustment_factor = 1_000_000_000_000 / 1000;
     // This is a simplification; real math is logarithmic.
     let adjusted_price = base_sqrt_price.checked_add_signed((tick as i128) * (adjustment_factor as i128))
         .ok_or(ErrorCode::ArithmeticOverflow)?;
@@ -444,7 +522,7 @@ pub fn get_sqrt_price_from_tick(tick: i32) -> Result<u128> {
 
 pub fn get_tick_at_sqrt_price(sqrt_price_x96: u128) -> Result<i32> {
     let base_sqrt_price = 1u128 << 96;
-    let adjustment_factor = 1_000_000_000 / 1000;
+    let adjustment_factor = 1_000_000_000_000 / 1000;
 
     let diff = sqrt_price_x96 as i128 - base_sqrt_price as i128;
     let tick = diff.checked_div(adjustment_factor as i128).ok_or(ErrorCode::ArithmeticOverflow)? as i32;
@@ -471,4 +549,28 @@ pub fn get_amounts_for_liquidity(
         amount1 = liquidity as u64; 
     }
     Ok((amount0, amount1))
+}
+
+pub fn swap_segment(
+    current_sqrt_price_x96: u128,
+    global_liquidity: u128,
+    amount_remaining_in: u64,
+    swap_token_0_for_1: bool,
+) -> Result<(u64, u64, u128)> {
+    if global_liquidity == 0 {
+        return Err(ErrorCode::InsufficientPoolLiquidity.into());
+    }
+
+    let amount_in_used = amount_remaining_in;
+    let mut amount_out_calculated = 0u64;
+    let mut new_sqrt_price = current_sqrt_price_x96;
+
+    amount_out_calculated = amount_in_used.checked_sub(amount_in_used / 1000).ok_or(ErrorCode::ArithmeticOverflow)?; // Simulates 0.1% 
+    if swap_token_0_for_1 {
+        new_sqrt_price = current_sqrt_price_x96.checked_sub(1_000_000_000).ok_or(ErrorCode::ArithmeticOverflow)?;
+        if new_sqrt_price < 1 { new_sqrt_price = 1; }
+        new_sqrt_price = current_sqrt_price_x96.checked_add(1_000_000_000).ok_or(ErrorCode::ArithmeticOverflow)?;
+    }
+
+    Ok((amount_in_used, amount_out_calculated, new_sqrt_price))
 }
