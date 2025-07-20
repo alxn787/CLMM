@@ -513,7 +513,7 @@ pub enum ErrorCode {
 
 pub fn get_sqrt_price_from_tick(tick: i32) -> Result<u128> {
     let base_sqrt_price = 1u128 << 96;
-    let adjustment_factor = 1_000_000_000_000 / 1000;
+    let adjustment_factor = 1_000_000_000 / 1000;
     // This is a simplification; real math is logarithmic.
     let adjusted_price = base_sqrt_price.checked_add_signed((tick as i128) * (adjustment_factor as i128))
         .ok_or(ErrorCode::ArithmeticOverflow)?;
@@ -522,7 +522,7 @@ pub fn get_sqrt_price_from_tick(tick: i32) -> Result<u128> {
 
 pub fn get_tick_at_sqrt_price(sqrt_price_x96: u128) -> Result<i32> {
     let base_sqrt_price = 1u128 << 96;
-    let adjustment_factor = 1_000_000_000_000 / 1000;
+    let adjustment_factor = 1_000_000_000 / 1000;
 
     let diff = sqrt_price_x96 as i128 - base_sqrt_price as i128;
     let tick = diff.checked_div(adjustment_factor as i128).ok_or(ErrorCode::ArithmeticOverflow)? as i32;
@@ -539,7 +539,6 @@ pub fn get_amounts_for_liquidity(
     let mut amount1 = 0u64;
 
     //simplified logic with approximation 
-
     if current_sqrt_price_x96 >= lower_sqrt_price_x96 && current_sqrt_price_x96 < upper_sqrt_price_x96 {
         amount0 = (liquidity / 2) as u64; 
         amount1 = (liquidity / 2) as u64;
