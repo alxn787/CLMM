@@ -14,15 +14,15 @@ pub struct AddLiquidity<'info> {
     pub pool: Account<'info, Pool>,
 
     #[account(
-    init_if_needed,
-    payer = payer,
-    space = TickArray::INIT_SPACE,
-    seeds = [
-        b"tick_array",
-        pool.key().as_ref(),
-        &TickArray::get_starting_tick_index(lower_tick, pool.tick_spacing).to_le_bytes(),
-    ],
-        bump
+        mut,
+        constraint = lower_tick_array.key() == Pubkey::find_program_address(
+            &[
+                b"tick_array".as_ref(),
+                pool.key().as_ref(),
+                &TickArray::get_starting_tick_index(lower_tick, pool.tick_spacing).to_le_bytes()
+            ],
+            &crate::ID
+        ).0 @ ErrorCode::InvalidTickArrayAccount
     )]
     pub lower_tick_array: Account<'info, TickArray>,
 

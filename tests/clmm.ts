@@ -10,7 +10,7 @@ describe("clmm", () => {
 
   it("Is initialized!", async () => {
     // Add your test here.
-    const tx = await program.methods.initialize().rpc();
+    const tx = await program.methods.initializePool
     console.log("Your transaction signature", tx);
   });
 });
