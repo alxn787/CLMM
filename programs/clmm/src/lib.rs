@@ -40,16 +40,6 @@ pub mod clmm {
     }
 
 
-    //ideally shouldnt need this  solving that
-    //issue rn 
-    // pub fn create_tick_array(ctx: Context<CreateTickArray>, starting_tick: i32) -> Result<()> {
-    //     let tick_array = &mut ctx.accounts.tick_array;
-    //     tick_array.pool = ctx.accounts.pool.key();
-    //     tick_array.starting_tick = starting_tick;
-    //     tick_array.bump = ctx.bumps.tick_array;
-    //     Ok(())
-    // }
-
     pub fn add_liquidity(
         ctx: Context<AddLiquidity>,
         owner: Pubkey,
