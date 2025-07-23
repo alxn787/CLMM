@@ -1,7 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 use crate::states::*;
-use crate::utils::ErrorCode;
 
 #[derive(Accounts)]
 #[instruction(lower_tick: i32, upper_tick: i32, liquidity_amount: u128, tick_array_lower_start_index: u32, tick_array_upper_start_index: u32)]
