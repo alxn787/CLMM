@@ -26,7 +26,7 @@ pub mod clmm {
 
     pub fn open_position(
         ctx: Context<OpenPosition>, 
-        owner: Pubkey, 
+        owner: Pubkey,
         lower_tick: i32, 
         upper_tick: i32, 
         liquidity_amount: u128
@@ -34,10 +34,27 @@ pub mod clmm {
        instructions::open_position::open_position(ctx, owner, lower_tick, upper_tick, liquidity_amount)
     }
 
+    pub fn increase_liquidity(
+        ctx: Context<IncreaseLiquidity>,
+        lower_tick: i32,
+        upper_tick: i32,
+        liquidity_amount: u128
+    ) -> Result<(u64,u64)>{
+        instructions::increase_liquidity::increase_liquidity(ctx, liquidity_amount, lower_tick, upper_tick)
+    }
+    pub fn decrease_liquiduty(
+        ctx: Context<DecreaseLiquidity>,
+        lower_tick: i32,
+        upper_tick: i32,
+        liquidity_amount: u128
+    ) -> Result<(u64,u64)>{
+        instructions::decrease_liquidity::decrease_liquidity(ctx, liquidity_amount, lower_tick, upper_tick)
+    }
 
     pub fn swap(ctx: Context<Swap>, amount_in: u64, swap_token_0_for_1: bool, amount_out_minimum: u64) -> Result<u64> {
         instructions::swap::swap(ctx, amount_in, swap_token_0_for_1, amount_out_minimum)    
     }
+
 
 }
 

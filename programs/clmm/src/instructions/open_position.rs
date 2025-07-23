@@ -67,6 +67,7 @@ pub struct OpenPosition<'info> {
     pub pool_token_1: Account<'info, TokenAccount>,
     #[account(mut)]
     pub payer: Signer<'info>,
+    
     pub token_mint_0: Account<'info, Mint>,
     pub token_mint_1: Account<'info, Mint>,
     pub system_program: Program<'info, System>,
