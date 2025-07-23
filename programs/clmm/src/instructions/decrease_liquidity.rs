@@ -1,3 +1,4 @@
+use anchor_lang::accounts::signer;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Transfer};
 use anchor_spl::token::{Mint, Token, TokenAccount};
@@ -6,7 +7,7 @@ use crate::utils::ErrorCode;
 use crate::utils::math::*;
 
 #[derive(Accounts)]
-pub struct IncreaseLiquidity<'info> {
+pub struct DecreaseLiquidity<'info> {
     #[account(
         mut,
         has_one = token_mint_0,
@@ -60,8 +61,8 @@ pub struct IncreaseLiquidity<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-pub fn increase_liquidity(
-    ctx:Context<IncreaseLiquidity>,
+pub fn decrease_liquidity(
+    ctx:Context<DecreaseLiquidity>,
     liquidity_amount: u128,
     lower_tick: i32,
     upper_tick: i32,
@@ -92,7 +93,7 @@ pub fn increase_liquidity(
     lower_tick_info.update_liquidity(liquidity_amount as i128, true)?;
     upper_tick_info.update_liquidity(liquidity_amount as i128, false)?;
 
-    position.liquidity = position.liquidity.checked_add(liquidity_amount).ok_or(ErrorCode::ArithmeticOverflow)?;
+    position.liquidity = position.liquidity.checked_sub(liquidity_amount).ok_or(ErrorCode::ArithmeticOverflow)?;
 
     let (amount_0, amount_1) = get_amounts_for_liquidity(
         pool.sqrt_price_x96,
@@ -104,35 +105,50 @@ pub fn increase_liquidity(
 
     pool.global_liquidity = pool
         .global_liquidity
-        .checked_add(liquidity_amount)
+        .checked_sub(liquidity_amount)
         .ok_or(ErrorCode::ArithmeticOverflow)?;
 
     if amount_0 > 0 {
-        token::transfer(
-            CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
-                Transfer {
-                    from: ctx.accounts.user_token_0.to_account_info(),
-                    to: ctx.accounts.pool_token_0.to_account_info(),
-                    authority: ctx.accounts.payer.to_account_info(),
-                },
-            ),
-            amount_0,
-        )?;
+        let signer_seeds: &[&[&[u8]]] = &[&[
+            b"pool".as_ref(),
+            pool.token_mint_0.as_ref(),
+            pool.token_mint_1.as_ref(),
+            &pool.tick_spacing.to_le_bytes(),
+            &[pool.bump],
+        ]];
+
+        let ctx = CpiContext:: new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            Transfer {
+                from: ctx.accounts.pool_token_0.to_account_info(),
+                to: ctx.accounts.user_token_0.to_account_info(),
+                authority: pool.to_account_info()
+            },
+            signer_seeds,
+        );
+
+        token::transfer(ctx, amount_0)?;
     }
 
     if amount_1 > 0 {
-        token::transfer(
-            CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
-                Transfer {
-                    from: ctx.accounts.user_token_1.to_account_info(),
-                    to: ctx.accounts.pool_token_1.to_account_info(),
-                    authority: ctx.accounts.payer.to_account_info(),
-                },
-            ),
-            amount_1,
-        )?;
+        let signer_seeds: &[&[&[u8]]]  = &[&[
+            b"pool".as_ref(),
+            pool.token_mint_0.as_ref(),
+            pool.token_mint_1.as_ref(),
+            &pool.tick_spacing.to_le_bytes(),
+            &[pool.bump],
+        ]];
+
+        let context = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(), 
+            Transfer {
+                from:ctx.accounts.pool_token_1.to_account_info(),
+                to: ctx.accounts.user_token_1.to_account_info(),
+                authority: pool.to_account_info(),
+            }, 
+            signer_seeds,
+        );
+        token::transfer(context, amount_1)?;
     }
 
     Ok((amount_0, amount_1))

@@ -1,4 +1,4 @@
-use anchor_lang::{context, prelude::*};
+use anchor_lang:: prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 use crate::states::*;
 use crate::utils::ErrorCode;
@@ -33,6 +33,7 @@ pub struct InitializePool<'info> {
         token::authority = pool,
     )]
     pub token_vault_0: Account<'info, TokenAccount>,
+    
     #[account(
         init,
         payer = payer,
