@@ -1,9 +1,11 @@
 pub mod pool;
-pub mod liquidity;
+pub mod open_position;
 pub mod swap;
 pub mod burn;
+pub mod increase_liquidity;
 
 pub use pool::*;
-pub use liquidity::*;
+pub use open_position::*;
 pub use swap::*;
 pub use burn::*;
+pub use increase_liquidity::*;
