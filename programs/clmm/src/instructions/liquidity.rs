@@ -4,7 +4,7 @@ use crate::states::*;
 use crate::utils::ErrorCode;
 
 #[derive(Accounts)]
-#[instruction(lower_tick: i32, upper_tick: i32, liquidity_amount: u128)]
+#[instruction(lower_tick: i32, upper_tick: i32, liquidity_amount: u128, tick_array_lower_start_index: u32, tick_array_upper_start_index: u32)]
 pub struct AddLiquidity<'info> {
     #[account(
         mut,
@@ -14,26 +14,27 @@ pub struct AddLiquidity<'info> {
     pub pool: Account<'info, Pool>,
 
     #[account(
-        mut,
-        constraint = lower_tick_array.key() == Pubkey::find_program_address(
-            &[
-                b"tick_array".as_ref(),
-                pool.key().as_ref(),
-                &TickArray::get_starting_tick_index(lower_tick, pool.tick_spacing).to_le_bytes()
-            ],
-            &crate::ID
-        ).0 @ ErrorCode::InvalidTickArrayAccount
+        init_if_needed,
+        payer = payer,   
+        space = TickArray::INIT_SPACE,  
+        seeds = [
+            b"tick_array",
+            pool.key().as_ref(),
+            &tick_array_lower_start_index.to_le_bytes()
+        ],
+        bump
     )]
+
     pub lower_tick_array: Account<'info, TickArray>,
 
     #[account(
     init_if_needed,
-    payer = payer,
-    space = TickArray::INIT_SPACE,
+    payer = payer,   
+    space = TickArray::INIT_SPACE,  
     seeds = [
         b"tick_array",
         pool.key().as_ref(),
-        &TickArray::get_starting_tick_index(upper_tick, pool.tick_spacing).to_le_bytes()
+        &tick_array_upper_start_index.to_le_bytes()
     ],
     bump
     )]
