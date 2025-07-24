@@ -38,4 +38,5 @@ pub enum ErrorCode {
     BurnRangeMustCoverCurrentPrice,
     #[msg("Insufficient pool liquidity to fulfill swap")]
     InsufficientPoolLiquidity,
+
 }

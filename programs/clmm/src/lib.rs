@@ -25,9 +25,12 @@ pub mod clmm {
         owner: Pubkey,
         lower_tick: i32, 
         upper_tick: i32, 
-        liquidity_amount: u128
+        liquidity_amount: u128,
+        _tick_array_lower_start_index: i32,
+        _tick_array_upper_start_index: i32
+
     ) -> Result<(u64, u64)> {
-       instructions::open_position::open_position(ctx, owner, lower_tick, upper_tick, liquidity_amount)
+       instructions::open_position::open_position(ctx, owner, lower_tick, upper_tick, liquidity_amount, _tick_array_lower_start_index, _tick_array_upper_start_index)
     }
 
     pub fn increase_liquidity(

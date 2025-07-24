@@ -2,7 +2,6 @@ use anchor_lang::prelude::*;
 use crate::utils::ErrorCode;
 
 #[account]
-#[derive(InitSpace)]
 pub struct TickInfo {
     pub initialized: bool,
     pub liquidity_gross: u128,
@@ -10,6 +9,13 @@ pub struct TickInfo {
 }
 
 impl TickInfo {
+
+    pub const SPACE: usize = 
+        8 + // discriminator
+        16 + // liquidity_gross
+        16 + // liquidity_net
+        1;   // initialized
+
     pub fn update_liquidity(&mut self, liquidity_delta: i128, is_lower: bool) -> Result<()> {
         if !self.initialized {
             self.initialized = true;
@@ -48,7 +54,7 @@ impl TickArray {
     pub const SPACE: usize = 8 + // discriminator
         32 + // pool
         4 +  // starting_tick
-        TICKS_PER_ARRAY * 16 + // ticks
+        TICKS_PER_ARRAY * 48 + // ticks
         1;   // bump
 
     pub fn get_starting_tick_index(tick: i32, tick_spacing: i32) -> i32 {
