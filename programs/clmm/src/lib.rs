@@ -2,17 +2,13 @@ pub mod states;
 pub mod utils;
 pub mod instructions;
 
-
 use crate::instructions::*;
-use crate::utils::ErrorCode;
-use crate::utils::math::*;
 use anchor_lang::prelude::*;
 
 declare_id!("4GhrgMYusqS5uuyzrrBvFv3FuVGp4RRp4XKDBctyW6oN");
 
 #[program]
 pub mod clmm {
-    use anchor_spl::token::{self, Transfer};
     use super::*;
 
     pub fn initialize_pool(
