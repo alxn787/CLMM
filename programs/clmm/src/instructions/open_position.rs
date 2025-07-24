@@ -5,7 +5,6 @@ use crate::states::*;
 use crate::utils::ErrorCode;
 use crate::utils::math::*;
 
-// The Accounts struct is correct as is.
 #[derive(Accounts)]
 #[instruction(owner: Pubkey, lower_tick: i32, upper_tick: i32, liquidity_amount: u128, tick_array_lower_start_index: i32, tick_array_upper_start_index: i32)]
 pub struct OpenPosition<'info> {
@@ -76,7 +75,6 @@ pub struct OpenPosition<'info> {
 }
 
 
-// The function signature has been updated to include the start indices.
 pub fn open_position(
     ctx: Context<OpenPosition>,
     owner: Pubkey,
@@ -95,7 +93,7 @@ pub fn open_position(
     let lower_tick_array = &mut ctx.accounts.lower_tick_array;
     let upper_tick_array = &mut ctx.accounts.upper_tick_array;
 
-    // Initialize tick arrays if they are new
+
     if lower_tick_array.starting_tick == 0 && lower_tick_array.pool == Pubkey::default() {
         lower_tick_array.pool = pool.key();
         lower_tick_array.starting_tick = _tick_array_lower_start_index;

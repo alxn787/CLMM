@@ -31,10 +31,9 @@ describe("clmm - pool creation and position opening test", () => {
   let userTokenAccount0: PublicKey;
   let userTokenAccount1: PublicKey;
   
-  // Position parameters
-  const LOWER_TICK = 0; // Example: 3 tick arrays below current
-  const UPPER_TICK = 4000;  // Example: 3 tick arrays above current
-  const LIQUIDITY_AMOUNT = new anchor.BN("100000"); // 1M liquidity units
+  const LOWER_TICK = 0; 
+  const UPPER_TICK = 4000; 
+  const LIQUIDITY_AMOUNT = new anchor.BN("100000"); 
 
   // Helper function to convert i32 to little-endian bytes (matching Rust's to_le_bytes())
   function i32ToLeBytes(value: number): Buffer {
@@ -43,8 +42,6 @@ describe("clmm - pool creation and position opening test", () => {
     return buffer;
   }
 
-  // Helper function to calculate tick array start index
-  // This must match your Rust get_starting_tick_index function exactly
   function getTickArrayStartIndex(tick: number, tickSpacing: number): number {
     const ticksPerArrayI32 = TICKS_PER_ARRAY;
     const arrayIdx = Math.floor(Math.floor(tick / tickSpacing) / ticksPerArrayI32);
@@ -58,7 +55,6 @@ describe("clmm - pool creation and position opening test", () => {
     [poolPda, poolBump] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("pool"),
-        // We'll update these after creating mints
       ],
       program.programId
     );
@@ -67,7 +63,7 @@ describe("clmm - pool creation and position opening test", () => {
     tokenMint0 = await createMint(
       program.provider.connection,
       program.provider.wallet.payer,
-      program.provider.wallet.publicKey, // Use wallet as initial authority
+      program.provider.wallet.publicKey, 
       null,
       6
     );
@@ -75,23 +71,18 @@ describe("clmm - pool creation and position opening test", () => {
     tokenMint1 = await createMint(
       program.provider.connection,
       program.provider.wallet.payer,
-      program.provider.wallet.publicKey, // Use wallet as initial authority
+      program.provider.wallet.publicKey,
       null,
       6
     );
 
-    // Ensure tokenMint0 < tokenMint1 for consistent ordering
-    if (tokenMint0.toBuffer().compare(tokenMint1.toBuffer()) > 0) {
-      [tokenMint0, tokenMint1] = [tokenMint1, tokenMint0];
-    }
 
-    // Now derive the correct poolPda with proper token ordering
     [poolPda, poolBump] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("pool"),
         tokenMint0.toBuffer(),
         tokenMint1.toBuffer(),
-        i32ToLeBytes(TICK_SPACING), // Use our helper function
+        i32ToLeBytes(TICK_SPACING), 
       ],
       program.programId
     );
@@ -206,8 +197,8 @@ describe("clmm - pool creation and position opening test", () => {
         Buffer.from("position"),
         program.provider.wallet.publicKey.toBuffer(),
         poolPda.toBuffer(),
-        i32ToLeBytes(LOWER_TICK), // Use our helper function for proper i32 encoding
-        i32ToLeBytes(UPPER_TICK), // Use our helper function for proper i32 encoding
+        i32ToLeBytes(LOWER_TICK), 
+        i32ToLeBytes(UPPER_TICK), 
       ],
       program.programId
     );
@@ -306,7 +297,7 @@ describe("clmm - pool creation and position opening test", () => {
       token0Transferred > 0 || token1Transferred > 0,
       "At least one token should be transferred for liquidity"
     );
-    
+
     try {
       const lowerTickArrayAccount = await program.account.tickArray.fetch(lowerTickArrayPda);
       console.log("Lower tick array initialized successfully");
