@@ -18,7 +18,7 @@ pub struct OpenPosition<'info> {
     #[account(
         init_if_needed,
         payer = payer,   
-        space = TickArray::INIT_SPACE,  
+        space = TickArray::SPACE,  
         seeds = [
             b"tick_array",
             pool.key().as_ref(),
@@ -32,7 +32,7 @@ pub struct OpenPosition<'info> {
     #[account(
     init_if_needed,
     payer = payer,   
-    space = TickArray::INIT_SPACE,  
+    space = TickArray::SPACE,  
     seeds = [
         b"tick_array",
         pool.key().as_ref(),
@@ -45,7 +45,7 @@ pub struct OpenPosition<'info> {
     #[account(
         init_if_needed,
         payer = payer,
-        space = Position::INIT_SPACE,
+        space = Position::SPACE,
         seeds = [
             b"position",
             payer.key().as_ref(),

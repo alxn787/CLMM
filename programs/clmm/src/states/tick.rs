@@ -36,7 +36,6 @@ impl TickInfo {
 pub const TICKS_PER_ARRAY: usize = 30;
 
 #[account]
-#[derive(InitSpace)]
 pub struct TickArray {
     pub pool: Pubkey,
     pub starting_tick: i32,
@@ -45,6 +44,13 @@ pub struct TickArray {
 }
 
 impl TickArray {
+
+    pub const SPACE: usize = 8 + // discriminator
+        32 + // pool
+        4 +  // starting_tick
+        TICKS_PER_ARRAY * 16 + // ticks
+        1;   // bump
+
     pub fn get_starting_tick_index(tick: i32, tick_spacing: i32) -> i32 {
         let ticks_per_array_i32 = TICKS_PER_ARRAY as i32;
         let array_idx = tick
