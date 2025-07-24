@@ -61,7 +61,7 @@ describe("clmm - simple pool creation test", () => {
     console.log("Attempting to initialize pool...");
     await program.methods
       .initializePool(TICK_SPACING, INITIAL_SQRT_PRICE)
-      .accountsStrict({
+      .accounts({
         payer: program.provider.wallet.publicKey,
         pool: poolPda,
         tokenMint0: tokenMint0, 
