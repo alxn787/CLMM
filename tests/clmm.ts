@@ -18,7 +18,7 @@ describe("clmm - pool creation and position opening test", () => {
 
   const TICK_SPACING = 60;
   const INITIAL_SQRT_PRICE = new anchor.BN("79228162514264337593543950336"); // sqrt(1) * 2^96
-  const TICKS_PER_ARRAY = 30; // Adjust based on your implementation
+  const TICKS_PER_ARRAY = 30; 
 
   let tokenMint0: PublicKey;
   let tokenMint1: PublicKey;
@@ -27,7 +27,7 @@ describe("clmm - pool creation and position opening test", () => {
   let tokenVault0Keypair: Keypair;
   let tokenVault1Keypair: Keypair;
   
-  // User token accounts
+
   let userTokenAccount0: PublicKey;
   let userTokenAccount1: PublicKey;
   
@@ -35,7 +35,6 @@ describe("clmm - pool creation and position opening test", () => {
   const UPPER_TICK = 4000; 
   const LIQUIDITY_AMOUNT = new anchor.BN("100000"); 
 
-  // Helper function to convert i32 to little-endian bytes (matching Rust's to_le_bytes())
   function i32ToLeBytes(value: number): Buffer {
     const buffer = Buffer.allocUnsafe(4);
     buffer.writeInt32LE(value, 0);
@@ -51,7 +50,6 @@ describe("clmm - pool creation and position opening test", () => {
   before(async () => {
     console.log("Setting up test environment (creating mints and deriving PDAs)...");
 
-    // First derive poolPda to use as mint authority
     [poolPda, poolBump] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("pool"),
@@ -59,7 +57,6 @@ describe("clmm - pool creation and position opening test", () => {
       program.programId
     );
 
-    // Create token mints
     tokenMint0 = await createMint(
       program.provider.connection,
       program.provider.wallet.payer,
@@ -87,11 +84,9 @@ describe("clmm - pool creation and position opening test", () => {
       program.programId
     );
 
-    // Generate keypairs for token vaults
     tokenVault0Keypair = anchor.web3.Keypair.generate();
     tokenVault1Keypair = anchor.web3.Keypair.generate();
 
-    // Create user token accounts and mint some tokens
     userTokenAccount0 = await createAssociatedTokenAccount(
       program.provider.connection,
       program.provider.wallet.payer,
@@ -106,14 +101,13 @@ describe("clmm - pool creation and position opening test", () => {
       program.provider.wallet.publicKey
     );
 
-    // Mint tokens to user accounts
     await mintTo(
       program.provider.connection,
       program.provider.wallet.payer,
       tokenMint0,
       userTokenAccount0,
       program.provider.wallet.publicKey,
-      1000000000 // 1B tokens
+      1000000000 
     );
 
     await mintTo(
@@ -122,7 +116,7 @@ describe("clmm - pool creation and position opening test", () => {
       tokenMint1,
       userTokenAccount1,
       program.provider.wallet.publicKey,
-      1000000000 // 1B tokens
+      1000000000
     );
 
     console.log("Test environment setup complete.");
@@ -155,7 +149,6 @@ describe("clmm - pool creation and position opening test", () => {
     const poolAccount = await program.account.pool.fetch(poolPda);
     console.log("Pool account data:", poolAccount);
 
-    // Verify pool data
     assert.equal(poolAccount.tickSpacing, TICK_SPACING);
     assert.equal(poolAccount.tokenMint0.toString(), tokenMint0.toString());
     assert.equal(poolAccount.tokenMint1.toString(), tokenMint1.toString());
@@ -165,19 +158,18 @@ describe("clmm - pool creation and position opening test", () => {
   it("Successfully opens a position in the pool", async () => {
     console.log("Attempting to open position...");
 
-    // Calculate tick array start indices
+
     const lowerTickArrayStartIndex = getTickArrayStartIndex(LOWER_TICK, TICK_SPACING);
     const upperTickArrayStartIndex = getTickArrayStartIndex(UPPER_TICK, TICK_SPACING);
 
     console.log("Lower tick:", LOWER_TICK, "-> Array start:", lowerTickArrayStartIndex);
     console.log("Upper tick:", UPPER_TICK, "-> Array start:", upperTickArrayStartIndex);
 
-    // Derive tick array PDAs using i32 encoding (little-endian)
     const [lowerTickArrayPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("tick_array"),
         poolPda.toBuffer(),
-        i32ToLeBytes(lowerTickArrayStartIndex), // Use our helper function
+        i32ToLeBytes(lowerTickArrayStartIndex), 
       ],
       program.programId
     );
@@ -186,12 +178,11 @@ describe("clmm - pool creation and position opening test", () => {
       [
         Buffer.from("tick_array"),
         poolPda.toBuffer(),
-        i32ToLeBytes(upperTickArrayStartIndex), // Use our helper function
+        i32ToLeBytes(upperTickArrayStartIndex),
       ],
       program.programId
     );
 
-    // Derive position PDA - THIS IS THE FIX
     const [positionPda] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("position"),
@@ -207,7 +198,6 @@ describe("clmm - pool creation and position opening test", () => {
     console.log("Lower Tick Array PDA:", lowerTickArrayPda.toString());
     console.log("Upper Tick Array PDA:", upperTickArrayPda.toString());
 
-    // Get user token account balances before
     const userToken0Before = await getAccount(
       program.provider.connection,
       userTokenAccount0
@@ -255,25 +245,20 @@ describe("clmm - pool creation and position opening test", () => {
     }
 
 
-    // Fetch and verify position data
     const positionAccount = await program.account.position.fetch(positionPda);
     console.log("Position account data:", positionAccount);
 
-    // Verify position data
     assert.equal(positionAccount.owner.toString(), program.provider.wallet.publicKey.toString());
     assert.equal(positionAccount.pool.toString(), poolPda.toString());
     assert.equal(positionAccount.tickLower, LOWER_TICK);
     assert.equal(positionAccount.tickUpper, UPPER_TICK);
     assert.equal(positionAccount.liquidity.toString(), LIQUIDITY_AMOUNT.toString());
 
-    // Fetch updated pool data
     const updatedPoolAccount = await program.account.pool.fetch(poolPda);
     console.log("Updated pool global liquidity:", updatedPoolAccount.globalLiquidity.toString());
 
-    // Verify pool liquidity increased
     assert.equal(updatedPoolAccount.globalLiquidity.toString(), LIQUIDITY_AMOUNT.toString());
 
-    // Get user token account balances after
     const userToken0After = await getAccount(
       program.provider.connection,
       userTokenAccount0
@@ -286,7 +271,6 @@ describe("clmm - pool creation and position opening test", () => {
     console.log("User token 0 balance after:", userToken0After.amount.toString());
     console.log("User token 1 balance after:", userToken1After.amount.toString());
 
-    // Verify tokens were transferred (balances should have decreased)
     const token0Transferred = userToken0Before.amount - userToken0After.amount;
     const token1Transferred = userToken1Before.amount - userToken1After.amount;
 
