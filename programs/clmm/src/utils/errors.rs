@@ -38,5 +38,14 @@ pub enum ErrorCode {
     BurnRangeMustCoverCurrentPrice,
     #[msg("Insufficient pool liquidity to fulfill swap")]
     InsufficientPoolLiquidity,
-
+    #[msg("Invalid pool liquidity")]
+    InvalidPoolLiquidity,
+    #[msg("No liquidity to remove")]
+    NoLiquidityToRemove,
+    #[msg("Invalid tick array start index")]
+    InvalidTickArrayStartIndex,
+    #[msg("Invalid tick array bump")]
+    InvalidTickArrayBump,
+    #[msg("Invalid tick array pool")]
+    InvalidTickArrayPool,
 }

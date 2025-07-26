@@ -1,4 +1,3 @@
-use anchor_lang::accounts::signer;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Transfer};
 use anchor_spl::token::{Mint, Token, TokenAccount};
